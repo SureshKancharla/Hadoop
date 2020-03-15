@@ -1,0 +1,252 @@
+mysql> create database hadoop_emp;
+mysql> use hadoop_emp;
+mysql> create table employee(id int(11),name varchar(45),deg varchar(45),salary int(11),dept varchar(45));
+mysql> alter table employee add last_modified timestamp default now() on update now();
+mysql> desc employee;
++---------------+-------------+------+-----+-------------------+-----------------------------+
+| Field         | Type        | Null | Key | Default           | Extra                       |
++---------------+-------------+------+-----+-------------------+-----------------------------+
+| id            | int(11)     | YES  |     | NULL              |                             |
+| name          | varchar(45) | YES  |     | NULL              |                             |
+| deg           | varchar(45) | YES  |     | NULL              |                             |
+| salary        | int(11)     | YES  |     | NULL              |                             |
+| dept          | varchar(45) | YES  |     | NULL              |                             |
+| last_modified | timestamp   | NO   |     | CURRENT_TIMESTAMP | on update CURRENT_TIMESTAMP |
++---------------+-------------+------+-----+-------------------+-----------------------------+
+6 rows in set (0.09 sec)
+
+
+mysql> insert into employee values (1,'Joe','BTECH',10000,'IT', null);
+mysql> select * from employee;
++------+------+-------+--------+------+---------------------+
+| id   | name | deg   | salary | dept | last_modified       |
++------+------+-------+--------+------+---------------------+
+|    1 | Joe  | BTECH |  10000 | IT   | 2020-03-11 15:50:08 |
++------+------+-------+--------+------+---------------------+
+1 row in set (0.00 sec)
+
+mysql>
+
+user@ubuntu:~$ sqoop import --connect jdbc:mysql://127.0.0.1/hadoop_emp --username root -P --table employee -m 1;
+
+user@ubuntu:~$ hadoop dfs -ls employee/*
+Warning: $HADOOP_HOME is deprecated.
+
+-rw-r--r--   1 user supergroup          0 2020-03-11 16:05 /user/user/employee/_SUCCESS
+drwxr-xr-x   - user supergroup          0 2020-03-11 16:03 /user/user/employee/_logs/history
+-rw-r--r--   1 user supergroup         43 2020-03-11 16:04 /user/user/employee/part-m-00000
+user@ubuntu:~$
+
+user@ubuntu:~$ hadoop dfs -cat /user/user/employee/part-m-00000
+Warning: $HADOOP_HOME is deprecated.
+
+1,Joe,BTECH,10000,IT,2020-03-11 15:50:08.0
+user@ubuntu:~$
+
+mysql> insert into employee values (2,'Ram','MTECH',30000,'IT', null);
+Query OK, 1 row affected (0.04 sec)
+
+mysql> select * from employee;
++------+------+-------+--------+------+---------------------+
+| id   | name | deg   | salary | dept | last_modified       |
++------+------+-------+--------+------+---------------------+
+|    1 | Joe  | BTECH |  10000 | IT   | 2020-03-11 15:50:08 |
+|    2 | Ram  | MTECH |  30000 | IT   | 2020-03-11 16:09:31 |
++------+------+-------+--------+------+---------------------+
+2 rows in set (0.00 sec)
+
+mysql>
+
+user@ubuntu:~$ sqoop import --connect jdbc:mysql://127.0.0.1/hadoop_emp --username root -P --table employee -m 1 --incremental lastmodified --merge-key id --check-column last_modified --last-value "2020-03-11 16:09:30";
+
+user@ubuntu:~$ hadoop dfs -cat /user/user/employee/*
+Warning: $HADOOP_HOME is deprecated.
+
+1,Joe,BTECH,10000,IT,2020-03-11 15:50:08.0
+2,Ram,MTECH,30000,IT,2020-03-11 16:09:31.0
+cat: File does not exist: /user/user/employee/_logs
+user@ubuntu:~$
+
+mysql> UPDATE employee SET SALARY =20000  WHERE id =1 ;
+Query OK, 1 row affected (0.32 sec)
+Rows matched: 1  Changed: 1  Warnings: 0
+
+mysql> select * from employee;
++------+------+-------+--------+------+---------------------+
+| id   | name | deg   | salary | dept | last_modified       |
++------+------+-------+--------+------+---------------------+
+|    1 | Joe  | BTECH |  20000 | IT   | 2020-03-11 16:24:25 |
+|    2 | Ram  | MTECH |  30000 | IT   | 2020-03-11 16:09:31 |
++------+------+-------+--------+------+---------------------+
+2 rows in set (0.01 sec)
+
+mysql>
+
+user@ubuntu:~$ sqoop import --connect jdbc:mysql://127.0.0.1/hadoop_emp --username root -P --table employee -m 1 --incremental lastmodified --merge-key id --check-column last_modified --last-value "2020-03-11 16:24:25";
+
+user@ubuntu:~$ hadoop dfs -cat /user/user/employee/*
+Warning: $HADOOP_HOME is deprecated.
+
+1,Joe,BTECH,20000,IT,2020-03-11 16:24:25.0
+2,Ram,MTECH,30000,IT,2020-03-11 16:09:31.0
+cat: File does not exist: /user/user/employee/_logs
+user@ubuntu:~$
+
+mysql> insert into employee values (3,'Tom','MS',40000,'IT', null);
+Query OK, 1 row affected (0.15 sec)
+
+
+mysql> select * from employee;
++------+------+-------+--------+------+---------------------+
+| id   | name | deg   | salary | dept | last_modified       |
++------+------+-------+--------+------+---------------------+
+|    1 | Joe  | BTECH |  20000 | IT   | 2020-03-11 16:24:25 |
+|    2 | Ram  | MTECH |  30000 | IT   | 2020-03-11 16:09:31 |
+|    3 | Tom  | MS    |  40000 | IT   | 2020-03-11 16:32:56 |
++------+------+-------+--------+------+---------------------+
+3 rows in set (0.01 sec)
+
+mysql>
+
+
+user@ubuntu:/usr/local$ sqoop job --create empupdatejob -- import --connect jdbc:mysql://127.0.0.1/hadoop_emp --username root -p Nihal@241 --table employee -m 1 --incremental lastmodified --merge-key id --check-column last_modified --last-value "2020-03-11 16:32:56";
+
+user@ubuntu:/usr/local$ sqoop job --create empupdatejob -- import --connect jdbc:mysql://127.0.0.1/hadoop_emp --username root -P --table employee -m 1 --incremental lastmodified --merge-key id --check-column last_modified --last-value "2020-03-11 16:32:56";
+Warning: /home/user/Desktop/Hadoop/sqoop-1.4.6.bin__hadoop-1.0.0/../hbase does not exist! HBase imports will fail.
+Please set $HBASE_HOME to the root of your HBase installation.
+Warning: /home/user/Desktop/Hadoop/sqoop-1.4.6.bin__hadoop-1.0.0/../hcatalog does not exist! HCatalog jobs will fail.
+Please set $HCAT_HOME to the root of your HCatalog installation.
+Warning: /home/user/Desktop/Hadoop/sqoop-1.4.6.bin__hadoop-1.0.0/../accumulo does not exist! Accumulo imports will fail.
+Please set $ACCUMULO_HOME to the root of your Accumulo installation.
+Warning: /home/user/Desktop/Hadoop/sqoop-1.4.6.bin__hadoop-1.0.0/../zookeeper does not exist! Accumulo imports will fail.
+Please set $ZOOKEEPER_HOME to the root of your Zookeeper installation.
+Warning: $HADOOP_HOME is deprecated.
+
+20/03/11 16:48:08 INFO sqoop.Sqoop: Running Sqoop version: 1.4.6
+Enter password:
+20/03/11 16:48:16 ERROR hsqldb.HsqldbJobStorage: Cannot create job empupdatejob: it already exists
+20/03/11 16:48:16 ERROR tool.JobTool: I/O error performing job operation: java.io.IOException: Job empupdatejob already exists
+        at org.apache.sqoop.metastore.hsqldb.HsqldbJobStorage.create(HsqldbJobStorage.java:373)
+        at org.apache.sqoop.tool.JobTool.createJob(JobTool.java:179)
+        at org.apache.sqoop.tool.JobTool.run(JobTool.java:279)
+        at org.apache.sqoop.Sqoop.run(Sqoop.java:143)
+        at org.apache.hadoop.util.ToolRunner.run(ToolRunner.java:65)
+        at org.apache.sqoop.Sqoop.runSqoop(Sqoop.java:179)
+        at org.apache.sqoop.Sqoop.runTool(Sqoop.java:218)
+        at org.apache.sqoop.Sqoop.runTool(Sqoop.java:227)
+        at org.apache.sqoop.Sqoop.main(Sqoop.java:236)
+
+
+user@ubuntu:/usr/local$ sqoop job --list
+Warning: /home/user/Desktop/Hadoop/sqoop-1.4.6.bin__hadoop-1.0.0/../hbase does not exist! HBase imports will fail.
+Please set $HBASE_HOME to the root of your HBase installation.
+Warning: /home/user/Desktop/Hadoop/sqoop-1.4.6.bin__hadoop-1.0.0/../hcatalog does not exist! HCatalog jobs will fail.
+Please set $HCAT_HOME to the root of your HCatalog installation.
+Warning: /home/user/Desktop/Hadoop/sqoop-1.4.6.bin__hadoop-1.0.0/../accumulo does not exist! Accumulo imports will fail.
+Please set $ACCUMULO_HOME to the root of your Accumulo installation.
+Warning: /home/user/Desktop/Hadoop/sqoop-1.4.6.bin__hadoop-1.0.0/../zookeeper does not exist! Accumulo imports will fail.
+Please set $ZOOKEEPER_HOME to the root of your Zookeeper installation.
+Warning: $HADOOP_HOME is deprecated.
+
+20/03/11 16:50:13 INFO sqoop.Sqoop: Running Sqoop version: 1.4.6
+Available jobs:
+  empupdatejob
+  myjob1
+  myjob10
+  test123
+  test241
+  test500
+  testjob
+user@ubuntu:/usr/local$
+
+user@ubuntu:/usr/local$ sqoop job --exec empupdatejob;
+
+
+user@ubuntu:/usr/local$ hadoop dfs -cat /user/user/employee/*
+Warning: $HADOOP_HOME is deprecated.
+
+1,Joe,BTECH,20000,IT,2020-03-11 16:24:25.0
+2,Ram,MTECH,30000,IT,2020-03-11 16:09:31.0
+3,Tom,MS,40000,IT,2020-03-11 16:32:56.0
+cat: File does not exist: /user/user/employee/_logs
+user@ubuntu:/usr/local$
+
+mysql> insert into employee values (4,'Jimmy','MBA',45000,'HR', null);
+Query OK, 1 row affected (0.15 sec)
+
+mysql> select * from employee;
++------+-------+-------+--------+------+---------------------+
+| id   | name  | deg   | salary | dept | last_modified       |
++------+-------+-------+--------+------+---------------------+
+|    1 | Joe   | BTECH |  20000 | IT   | 2020-03-11 16:24:25 |
+|    2 | Ram   | MTECH |  30000 | IT   | 2020-03-11 16:09:31 |
+|    3 | Tom   | MS    |  40000 | IT   | 2020-03-11 16:32:56 |
+|    4 | Jimmy | MBA   |  45000 | HR   | 2020-03-11 16:58:37 |
++------+-------+-------+--------+------+---------------------+
+4 rows in set (0.00 sec)
+
+mysql>
+
+user@ubuntu:/usr/local$ sqoop job --exec empupdatejob;
+
+user@ubuntu:/usr/local$ hadoop dfs -cat /user/user/employee/*
+Warning: $HADOOP_HOME is deprecated.
+
+1,Joe,BTECH,20000,IT,2020-03-11 16:24:25.0
+2,Ram,MTECH,30000,IT,2020-03-11 16:09:31.0
+3,Tom,MS,40000,IT,2020-03-11 16:32:56.0
+4,Jimmy,MBA,45000,HR,2020-03-11 16:58:37.0
+cat: File does not exist: /user/user/employee/_logs
+user@ubuntu:/usr/local$
+
+mysql> insert into employee values (5,'Suresh','BE',45000,'IT', null);
+Query OK, 1 row affected (0.15 sec)
+
+mysql> select * from employee;
++------+--------+-------+--------+------+---------------------+
+| id   | name   | deg   | salary | dept | last_modified       |
++------+--------+-------+--------+------+---------------------+
+|    1 | Joe    | BTECH |  20000 | IT   | 2020-03-11 16:24:25 |
+|    2 | Ram    | MTECH |  30000 | IT   | 2020-03-11 16:09:31 |
+|    3 | Tom    | MS    |  40000 | IT   | 2020-03-11 16:32:56 |
+|    4 | Jimmy  | MBA   |  45000 | HR   | 2020-03-11 16:58:37 |
+|    5 | Suresh | BE    |  45000 | IT   | 2020-03-11 17:08:41 |
++------+--------+-------+--------+------+---------------------+
+5 rows in set (0.00 sec)
+
+mysql>
+
+user@ubuntu:~$ /home/user/employee-sqoop.sh
+
+user@ubuntu:~$ hadoop dfs -cat /user/user/employee/*
+Warning: $HADOOP_HOME is deprecated.
+
+1,Joe,BTECH,20000,IT,2020-03-11 16:24:25.0
+2,Ram,MTECH,30000,IT,2020-03-11 16:09:31.0
+3,Tom,MS,40000,IT,2020-03-11 16:32:56.0
+4,Jimmy,MBA,45000,HR,2020-03-11 16:58:37.0
+5,Suresh,BE,45000,IT,2020-03-11 17:08:41.0
+cat: File does not exist: /user/user/employee/_logs
+
+
+
+mysql> insert into employee values (6,'Prathima','BE',45000,'IT', null);
+Query OK, 1 row affected (0.11 sec)
+
+mysql> select * from employee;
++------+----------+-------+--------+------+---------------------+
+| id   | name     | deg   | salary | dept | last_modified       |
++------+----------+-------+--------+------+---------------------+
+|    1 | Joe      | BTECH |  20000 | IT   | 2020-03-11 16:24:25 |
+|    2 | Ram      | MTECH |  30000 | IT   | 2020-03-11 16:09:31 |
+|    3 | Tom      | MS    |  40000 | IT   | 2020-03-11 16:32:56 |
+|    4 | Jimmy    | MBA   |  45000 | HR   | 2020-03-11 16:58:37 |
+|    5 | Suresh   | BE    |  45000 | IT   | 2020-03-11 17:08:41 |
+|    6 | Prathima | BE    |  45000 | IT   | 2020-03-12 11:34:18 |
++------+----------+-------+--------+------+---------------------+
+6 rows in set (0.00 sec)
+
+mysql>
+
+
+
